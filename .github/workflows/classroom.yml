@@ -314,5 +314,5 @@ jobs:
       - name: Report grades
         uses: classroom-resources/autograding-grading-reporter@v1
         with:
-          runners: '["t_required","t_listener","t_large","t_small","t_xl","t_clear"]'
+          runners: "t_required,t_listener,t_large,t_small,t_xl,t_clear"
 
