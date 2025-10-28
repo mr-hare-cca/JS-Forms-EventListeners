@@ -1,23 +1,16 @@
+name: Autograding
 
----
-
-## `.github/workflows/classroom.yml`
-name: Classroom Autograder – Unit 8.7 (Forms + EventListeners)
-
-'on':
-  - push
-  - pull_request
-  - workflow_dispatch
-
-permissions:
-  checks: write
-  actions: read
-  contents: read
+on:
+  push:
+  workflow_dispatch:
 
 jobs:
   autograde:
     runs-on: ubuntu-latest
-    if: github.actor != 'github-classroom[bot]'
+    permissions:
+      contents: read
+      checks: write
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -27,12 +20,12 @@ jobs:
         with:
           node-version: 20
 
-      - name: Install test deps
+      - name: Install Jest + jsdom
         run: |
           npm init -y >/dev/null 2>&1 || true
           npm install --save-dev jest@29 jsdom@21 jest-environment-jsdom@29
 
-      - name: Jest setup
+      - name: Jest setup shim (TextEncoder/TextDecoder)
         run: |
           cat > jest.setup.cjs <<'EOF'
           const { TextEncoder, TextDecoder } = require('util');
@@ -50,243 +43,78 @@ jobs:
           };
           EOF
 
-      - name: Create tests for Unit 8.7
+      - name: Ensure tests file exists (teacher-provided)
         run: |
           mkdir -p __tests__
-          cat > __tests__/forms-8_7.test.cjs <<'EOF'
-          const fs = require('fs');
-          const path = require('path');
-          const { JSDOM, VirtualConsole } = require('jsdom');
+          if [ ! -f "__tests__/forms-8_7.test.cjs" ]; then
+            echo "Missing test file: __tests__/forms-8_7.test.cjs"
+            exit 1
+          fi
 
-          const wait = (ms=30) => new Promise(r => setTimeout(r, ms));
-          const find = arr => arr.find(p => fs.existsSync(p)) || null;
-          const findIndex = () => find(['index.html','public/index.html','src/index.html','docs/index.html']);
+      # ------- Individual graded checks (use -t substring, not anchored regex) -------
 
-          function byId(doc, id) { return doc.getElementById(id); }
-          function text(doc, id) {
-            const el = byId(doc, id);
-            return (el?.textContent || el?.innerText || '').trim();
-          }
-          function setVal(doc, id, v) {
-            const el = byId(doc, id); if (!el) return false; el.value = String(v); return true;
-          }
-          function click(doc, id) { byId(doc, id).click(); }
-
-          async function loadDOM() {
-            const idx = findIndex();
-            if (!idx) throw new Error('index.html not found (root/public/src/docs).');
-
-            const vconsole = new VirtualConsole();
-            vconsole.on('error', () => {}); // quiet CI
-
-            const baseDir = path.dirname(path.resolve(idx));
-            const baseUrl = 'file://' + baseDir.replace(/\\+/g, '/') + '/';
-
-            const dom = await JSDOM.fromFile(idx, {
-              url: baseUrl,
-              runScripts: 'dangerously',
-              resources: 'usable',
-              pretendToBeVisual: true,
-              virtualConsole: vconsole
-            });
-
-            // forbid prompt/alert; output must be on page
-            dom.window.prompt = () => { throw new Error('Use inputs, not prompt().'); };
-            dom.window.alert  = () => { throw new Error('Use textContent, not alert().'); };
-
-            await new Promise(res => dom.window.addEventListener('load', res, { once: true }));
-            await wait();
-            return dom;
-          }
-
-          describe('Unit 8.7 – Forms & EventListeners', () => {
-            let dom, window, document;
-
-            beforeAll(async () => {
-              dom = await loadDOM();
-              window = dom.window;
-              document = window.document;
-            });
-
-            test('required elements exist', () => {
-              // Buttons & output
-              ['btnCalc','clearBtn','myPara','myInput','serviceSelect'].forEach(id =>
-                expect(document.getElementById(id)).not.toBeNull()
-              );
-              // 4 radios
-              ['r1','r2','r3','r4'].forEach(id =>
-                expect(document.getElementById(id)).not.toBeNull()
-              );
-              // 8 checkboxes
-              for (let i=1;i<=8;i++) {
-                expect(document.getElementById('cb'+i)).not.toBeNull();
-              }
-              // radio group name
-              const radios = document.getElementsByName('rg');
-              expect(radios.length).toBeGreaterThanOrEqual(4);
-
-              // dropdown values
-              const sel = document.getElementById('serviceSelect');
-              const vals = Array.from(sel.options).map(o => o.value).sort();
-              expect(vals).toEqual(['delivery','dinein','takeout'].sort());
-            });
-
-            test('button uses addEventListener and no inline onclick', () => {
-              const calc = document.getElementById('btnCalc');
-              const clear = document.getElementById('clearBtn');
-              // Fail if inline onclick attributes appear
-              expect(calc.getAttribute('onclick')).toBeNull();
-              expect(clear.getAttribute('onclick')).toBeNull();
-            });
-
-            test('price large two toppings dine in', async () => {
-              // Defaults: r3 checked in starter. Ensure two toppings:
-              document.getElementById('cb1').checked = true;
-              document.getElementById('cb2').checked = true;
-              setVal(document, 'serviceSelect', 'dinein');
-              setVal(document, 'myInput', 'Alex');
-
-              document.getElementById('cb3').checked = false;
-              document.getElementById('cb4').checked = false;
-              document.getElementById('cb5').checked = false;
-              document.getElementById('cb6').checked = false;
-              document.getElementById('cb7').checked = false;
-              document.getElementById('cb8').checked = false;
-
-              click(document, 'btnCalc'); await wait();
-
-              const t = text(document, 'myPara');
-              // Large 12.5 + 2*0.5 = 13.5
-              const num = parseFloat((t.match(/-?\d+(\.\d+)?/)||[])[0]);
-              expect(Math.abs(num - 13.5) < 1e-6).toBe(true);
-            });
-
-            test('price small no toppings delivery', async () => {
-              // Select Small
-              document.getElementById('r1').checked = true;
-              document.getElementById('r2').checked = false;
-              document.getElementById('r3').checked = false;
-              document.getElementById('r4').checked = false;
-
-              // No toppings
-              for (let i=1;i<=8;i++) document.getElementById('cb'+i).checked = false;
-
-              // Delivery
-              setVal(document, 'serviceSelect', 'delivery');
-              setVal(document, 'myInput', 'Sam');
-
-              click(document, 'btnCalc'); await wait();
-
-              const t = text(document, 'myPara');
-              // 7.5 + 0 + 3 = 10.5
-              const num = parseFloat((t.match(/-?\d+(\.\d+)?/)||[])[0]);
-              expect(Math.abs(num - 10.5) < 1e-6).toBe(true);
-            });
-
-            test('price xl eight toppings dine in', async () => {
-              // XL
-              document.getElementById('r4').checked = true;
-              document.getElementById('r1').checked = false;
-              document.getElementById('r2').checked = false;
-              document.getElementById('r3').checked = false;
-
-              // all toppings
-              for (let i=1;i<=8;i++) document.getElementById('cb'+i).checked = true;
-
-              // dine in
-              setVal(document, 'serviceSelect', 'dinein');
-              setVal(document, 'myInput', 'Riley');
-
-              click(document, 'btnCalc'); await wait();
-
-              const t = text(document, 'myPara');
-              // 15 + 8*0.5 = 19.0
-              const num = parseFloat((t.match(/-?\d+(\.\d+)?/)||[])[0]);
-              expect(Math.abs(num - 19.0) < 1e-6).toBe(true);
-            });
-
-            test('clear button resets form', async () => {
-              // Dirty the form
-              setVal(document, 'myInput', 'Taylor');
-              document.getElementById('r4').checked = true;
-              for (let i=1;i<=8;i++) document.getElementById('cb'+i).checked = i%2===0;
-              setVal(document, 'serviceSelect', 'delivery');
-              byId(document, 'myPara').textContent = 'temp';
-
-              click(document, 'clearBtn'); await wait();
-
-              expect(byId(document,'myInput').value).toBe('');
-              expect(byId(document,'myPara').textContent).toBe('');
-              expect(byId(document,'r3').checked).toBe(true); // Large is default
-              expect(byId(document,'serviceSelect').value).toBe('dinein');
-              for (let i=1;i<=8;i++) expect(byId(document,'cb'+i).checked).toBe(false);
-            });
-          });
-          EOF
-
-      # ---------- GRADING STEPS (6 checks = 100 points) ----------
-      - name: 'required elements exist'
+      - name: required elements exist
         id: t_required
         uses: classroom-resources/autograding-command-grader@v1
         with:
-          test-name: 'required elements exist'
+          test-name: required elements exist
           setup-command: echo "ready"
-          command: npx jest --runInBand --testNamePattern "^required elements exist$"
+          command: npx jest --runInBand -t "required elements exist"
           timeout: 60
           max-score: 15
 
-      - name: 'no inline onclick; uses addEventListener'
+      - name: no inline onclick; uses addEventListener
         id: t_listener
         uses: classroom-resources/autograding-command-grader@v1
         with:
-          test-name: 'no inline onclick; uses addEventListener'
+          test-name: no inline onclick; uses addEventListener
           setup-command: echo "ready"
-          command: npx jest --runInBand --testNamePattern "^button uses addEventListener and no inline onclick$"
+          command: npx jest --runInBand -t "button uses addEventListener and no inline onclick"
           timeout: 60
           max-score: 15
 
-      - name: 'large + 2 toppings dine-in = 13.50'
+      - name: large + 2 toppings dine-in = 13.50
         id: t_large
         uses: classroom-resources/autograding-command-grader@v1
         with:
-          test-name: 'large + 2 toppings dine-in = 13.50'
+          test-name: large + 2 toppings dine-in = 13.50
           setup-command: echo "ready"
-          command: npx jest --runInBand --testNamePattern "^price large two toppings dine in$"
+          command: npx jest --runInBand -t "price large two toppings dine in"
           timeout: 60
           max-score: 20
 
-      - name: 'small + delivery = 10.50'
+      - name: small + delivery = 10.50
         id: t_small
         uses: classroom-resources/autograding-command-grader@v1
         with:
-          test-name: 'small + delivery = 10.50'
+          test-name: small + delivery = 10.50
           setup-command: echo "ready"
-          command: npx jest --runInBand --testNamePattern "^price small no toppings delivery$"
+          command: npx jest --runInBand -t "price small no toppings delivery"
           timeout: 60
           max-score: 20
 
-      - name: 'xl + all toppings = 19.00'
+      - name: xl + all toppings = 19.00
         id: t_xl
         uses: classroom-resources/autograding-command-grader@v1
         with:
-          test-name: 'xl + all toppings = 19.00'
+          test-name: xl + all toppings = 19.00
           setup-command: echo "ready"
-          command: npx jest --runInBand --testNamePattern "^price xl eight toppings dine in$"
+          command: npx jest --runInBand -t "price xl eight toppings dine in"
           timeout: 60
           max-score: 15
 
-      - name: 'clear resets form'
+      - name: clear resets form
         id: t_clear
         uses: classroom-resources/autograding-command-grader@v1
         with:
-          test-name: 'clear resets form'
+          test-name: clear resets form
           setup-command: echo "ready"
-          command: npx jest --runInBand --testNamePattern "^clear button resets form$"
+          command: npx jest --runInBand -t "clear button resets form"
           timeout: 60
           max-score: 15
 
-      # ---------- SUMMARY ----------
-      - name: Write summary to job log
+      # ------- Summary (human-readable) -------
+      - name: Build human-friendly summary
         run: |
           npx jest --runInBand --json --outputFile=jest-summary.json || true
           node - <<'NODE'
@@ -311,25 +139,14 @@ jobs:
           const lines = [];
           lines.push('Unit 8.7 Autograder Summary');
           lines.push('Passed: ' + passed + '/' + wanted.length, '');
-          for (const name of wanted) {
-            lines.push((status[name] ? '✅ ' : '❌ ') + name);
-          }
+          for (const name of wanted) lines.push((status[name] ? '✅ ' : '❌ ') + name);
           lines.push('', 'Checks');
-          for (const t of assertions) {
-            lines.push(`${t.status === 'passed' ? '✅' : '❌'} ${t.title}`);
-          }
+          for (const t of assertions) lines.push(`${t.status === 'passed' ? '✅' : '❌'} ${t.title}`);
           console.log(lines.join('\n'));
           NODE
 
-      - name: Autograding Reporter
+      # ------- Report points to GitHub Classroom -------
+      - name: Report grades
         uses: classroom-resources/autograding-grading-reporter@v1
-        env:
-          T_REQUIRED_RESULTS:  ${{ steps.t_required.outputs.result }}
-          T_LISTENER_RESULTS:  ${{ steps.t_listener.outputs.result }}
-          T_LARGE_RESULTS:     ${{ steps.t_large.outputs.result }}
-          T_SMALL_RESULTS:     ${{ steps.t_small.outputs.result }}
-          T_XL_RESULTS:        ${{ steps.t_xl.outputs.result }}
-          T_CLEAR_RESULTS:     ${{ steps.t_clear.outputs.result }}
         with:
           runners: t_required,t_listener,t_large,t_small,t_xl,t_clear
-
