@@ -316,8 +316,8 @@ jobs:
           NODE
 
       # === Report to Classroom (NOTE: runners is a single-quoted one-liner) ===
-      - name: Report grades
-        uses: classroom-resources/autograding-grading-reporter@v1
-        with:
-          runners: 't_required,t_listener,t_large,t_small,t_xl,t_clear'
-          token: ${{ github.token }}
+      # - name: Report grades
+      #   uses: classroom-resources/autograding-grading-reporter@v1
+      #   with:
+      #     runners: 't_required,t_listener,t_large,t_small,t_xl,t_clear'
+      #     token: ${{ github.token }}
