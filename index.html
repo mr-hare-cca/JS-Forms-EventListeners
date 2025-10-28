@@ -1,12 +1,47 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>JS | Variables and Methods</title>
-    <script src="script.js"></script>
+  <meta charset="UTF-8" />
+  <title>Unit 8.7 – Forms & Event Listeners</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script src="script.js" defer></script>
 </head>
 <body>
-    <h1>Your html goes here...</h1>
-    <br>See the <a href="README.md">README</a> for project details
+  <h1>Pizza Builder</h1>
+
+  <label for="myInput">Name:</label>
+  <input id="myInput" placeholder="Enter your name" />
+
+  <h3>Size</h3>
+  <input type="radio" name="rg" id="r1" value="7.5"><label for="r1">Small ($7.50)</label><br>
+  <input type="radio" name="rg" id="r2" value="10"><label for="r2">Medium ($10.00)</label><br>
+  <input type="radio" name="rg" id="r3" value="12.5" checked><label for="r3">Large ($12.50)</label><br>
+  <input type="radio" name="rg" id="r4" value="15"><label for="r4">XL ($15.00)</label><br>
+
+  <h3>Toppings ($0.50 each)</h3>
+  <div>
+    <input type="checkbox" name="cb" id="cb1" value="Cheese"><label for="cb1">Cheese</label>
+    <input type="checkbox" name="cb" id="cb2" value="Mushrooms"><label for="cb2">Mushrooms</label>
+    <input type="checkbox" name="cb" id="cb3" value="Onions"><label for="cb3">Onions</label>
+    <input type="checkbox" name="cb" id="cb4" value="Peppers"><label for="cb4">Peppers</label>
+    <input type="checkbox" name="cb" id="cb5" value="Olives"><label for="cb5">Olives</label>
+    <input type="checkbox" name="cb" id="cb6" value="Sausage"><label for="cb6">Sausage</label>
+    <input type="checkbox" name="cb" id="cb7" value="Pepperoni"><label for="cb7">Pepperoni</label>
+    <input type="checkbox" name="cb" id="cb8" value="Pineapple"><label for="cb8">Pineapple</label>
+  </div>
+
+  <h3>Service</h3>
+  <select id="serviceSelect">
+    <option value="dinein">Dine-In</option>
+    <option value="takeout">Take-Out</option>
+    <option value="delivery">Delivery (+$3)</option>
+  </select>
+
+  <div style="margin-top: 1rem;">
+    <button id="btnCalc">Calculate</button>
+    <button id="clearBtn">Start Over</button>
+  </div>
+
+  <p id="myPara"></p>
 </body>
 </html>
