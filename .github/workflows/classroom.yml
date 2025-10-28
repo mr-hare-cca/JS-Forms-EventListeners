@@ -2,8 +2,6 @@
 ---
 
 ## `.github/workflows/classroom.yml`
-
-```yaml
 name: Classroom Autograder – Unit 8.7 (Forms + EventListeners)
 
 'on':
