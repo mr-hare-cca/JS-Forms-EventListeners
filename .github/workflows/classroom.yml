@@ -1,31 +1,29 @@
-name: Autograding
+name: autograde
 
 on:
   push:
+  pull_request:
   workflow_dispatch:
 
 jobs:
   autograde:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      checks: write
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      - name: Install Jest + jsdom
+      # Install Jest + jsdom
+      - name: Install test deps
         run: |
           npm init -y >/dev/null 2>&1 || true
           npm install --save-dev jest@29 jsdom@21 jest-environment-jsdom@29
 
-      - name: Jest setup shim (TextEncoder/TextDecoder)
+      # Jest setup (TextEncoder/Decoder for Node 20)
+      - name: Write jest setup
         run: |
           cat > jest.setup.cjs <<'EOF'
           const { TextEncoder, TextDecoder } = require('util');
@@ -33,7 +31,8 @@ jobs:
           if (typeof global.TextDecoder === 'undefined') global.TextDecoder = TextDecoder;
           EOF
 
-      - name: Jest config
+      # Jest config
+      - name: Write jest config
         run: |
           cat > jest.config.cjs <<'EOF'
           module.exports = {
@@ -43,7 +42,8 @@ jobs:
           };
           EOF
 
-      - name: Write tests (Unit 8.7 – Forms & EventListeners)
+      # Tests (unchanged from the working version you showed)
+      - name: Write tests
         run: |
           mkdir -p __tests__
           cat > __tests__/forms-8_7.test.cjs <<'EOF'
@@ -217,69 +217,70 @@ jobs:
           });
           EOF
 
-      # ---------- Individual graded checks (use -t substring, not anchored regex) ----------
-      - name: required elements exist
-        id: t_required
+      # === Individual graded runs (each with an explicit id) ===
+      - id: t_required
+        name: required elements exist
         uses: classroom-resources/autograding-command-grader@v1
         with:
           test-name: required elements exist
           setup-command: echo "ready"
-          command: npx jest --runInBand -t "required elements exist"
+          command: npx jest --runInBand --testNamePattern "^required elements exist$"
           timeout: 60
           max-score: 15
 
-      - name: no inline onclick; uses addEventListener
-        id: t_listener
+      - id: t_listener
+        name: no inline onclick; uses addEventListener
         uses: classroom-resources/autograding-command-grader@v1
         with:
           test-name: no inline onclick; uses addEventListener
           setup-command: echo "ready"
-          command: npx jest --runInBand -t "button uses addEventListener and no inline onclick"
+          command: npx jest --runInBand --testNamePattern "^button uses addEventListener and no inline onclick$"
           timeout: 60
           max-score: 15
 
-      - name: large + 2 toppings dine-in = 13.50
-        id: t_large
+      - id: t_large
+        name: large + 2 toppings dine-in = 13.50
         uses: classroom-resources/autograding-command-grader@v1
         with:
           test-name: large + 2 toppings dine-in = 13.50
           setup-command: echo "ready"
-          command: npx jest --runInBand -t "price large two toppings dine in"
+          command: npx jest --runInBand --testNamePattern "^price large two toppings dine in$"
           timeout: 60
           max-score: 20
 
-      - name: small + delivery = 10.50
-        id: t_small
+      - id: t_small
+        name: small + delivery = 10.50
         uses: classroom-resources/autograding-command-grader@v1
         with:
           test-name: small + delivery = 10.50
           setup-command: echo "ready"
-          command: npx jest --runInBand -t "price small no toppings delivery"
+          command: npx jest --runInBand --testNamePattern "^price small no toppings delivery$"
           timeout: 60
           max-score: 20
 
-      - name: xl + all toppings = 19.00
-        id: t_xl
+      - id: t_xl
+        name: xl + all toppings = 19.00
         uses: classroom-resources/autograding-command-grader@v1
         with:
           test-name: xl + all toppings = 19.00
           setup-command: echo "ready"
-          command: npx jest --runInBand -t "price xl eight toppings dine in"
+          command: npx jest --runInBand --testNamePattern "^price xl eight toppings dine in$"
           timeout: 60
           max-score: 15
 
-      - name: clear resets form
-        id: t_clear
+      - id: t_clear
+        name: clear resets form
         uses: classroom-resources/autograding-command-grader@v1
         with:
           test-name: clear resets form
           setup-command: echo "ready"
-          command: npx jest --runInBand -t "clear button resets form"
+          command: npx jest --runInBand --testNamePattern "^clear button resets form$"
           timeout: 60
           max-score: 15
 
-      # ---------- Summary (human-readable) ----------
-      - name: Build human-friendly summary
+      # === Summary (collects Jest JSON, prints ✅/❌) ===
+      - name: Summary (optional)
+        shell: bash
         run: |
           npx jest --runInBand --json --outputFile=jest-summary.json || true
           node - <<'NODE'
@@ -304,14 +305,19 @@ jobs:
           const lines = [];
           lines.push('Unit 8.7 Autograder Summary');
           lines.push('Passed: ' + passed + '/' + wanted.length, '');
-          for (const name of wanted) lines.push((status[name] ? '✅ ' : '❌ ') + name);
+          for (const name of wanted) {
+            lines.push((status[name] ? '✅ ' : '❌ ') + name);
+          }
           lines.push('', 'Checks');
-          for (const t of assertions) lines.push(`${t.status === 'passed' ? '✅' : '❌'} ${t.title}`);
+          for (const t of assertions) {
+            lines.push(`${t.status === 'passed' ? '✅' : '❌'} ${t.title}`);
+          }
           console.log(lines.join('\n'));
           NODE
 
+      # === Report to Classroom (NOTE: runners is a single-quoted one-liner) ===
       - name: Report grades
         uses: classroom-resources/autograding-grading-reporter@v1
         with:
-          runners: "t_required,t_listener,t_large,t_small,t_xl,t_clear"
+          runners: 't_required,t_listener,t_large,t_small,t_xl,t_clear'
           token: ${{ github.token }}
